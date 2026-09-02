@@ -763,4 +763,629 @@ function showResult(mcq,msq,desc,total,timeTaken,partA,partB){
       </table>
     </div>`:''}
     <div style="text-align:center;margin:25px 0;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-      <button class="btn-success" onclick="retakeExam()">🔁 Retake Exam (New Paper
+      <button class="btn-success" onclick="retakeExam()">🔁 Retake Exam (New Paper)</button>
+      <button class="btn-primary" onclick="printScorecard()">🖨️ Print Scorecard</button>
+      <button class="btn-primary" onclick="logout()">Back to Login</button>
+    </div>
+    <div id="printableScorecard" class="scorecard-print" style="display:none;">
+      <h2>🎓 MAHE Online Examination — Scorecard</h2>
+      <div class="row"><b>Student ID:</b><span>${uid}</span></div>
+      <div class="row"><b>Course:</b><span>Business Statistics</span></div>
+      <div class="row"><b>Attempt:</b><span>#${exam.attemptNo}</span></div>
+      <div class="row"><b>Date:</b><span>${new Date().toLocaleString()}</span></div>
+      <div class="row"><b>Time Taken:</b><span>${timeMin}m ${timeSec}s / 150m</span></div>
+      <hr style="margin:15px 0;">
+      <div class="row"><b>MCQ Score:</b><span>${mcq} / 20</span></div>
+      <div class="row"><b>MSQ Score:</b><span>${msq} / 20</span></div>
+      <div class="row"><b>Descriptive Score:</b><span>${desc} / 30</span></div>
+      <hr style="margin:15px 0;">
+      <div class="row" style="font-size:18px;"><b>TOTAL SCORE:</b><span><b>${total} / 70 (${percentage.toFixed(1)}%)</b></span></div>
+      <div class="row"><b>Grade:</b><span>${grade} — ${remark}</span></div>
+      <div style="text-align:center;margin-top:30px;font-size:12px;color:#666;">This is a computer-generated scorecard.</div>
+    </div>
+    <details style="margin-top:20px;">
+      <summary style="cursor:pointer;font-weight:bold;color:#1e3c72;padding:10px;background:#f5f5f5;border-radius:6px;">📝 View Detailed Answers</summary>
+      <div style="padding:15px;">
+        <h3 style="margin:15px 0 10px;color:#1e3c72;">Part A</h3>
+        ${partA.map(r=>`<div class="q-item" style="border-left-color:${r.isCorrect?'#4caf50':'#d32f2f'}">
+          <b>Q${r.qNo} (${r.type.toUpperCase()}):</b> ${escapeHtml(r.q)}<br>
+          <small>Your: ${escapeHtml(r.studentAns)}<br>Correct: ${escapeHtml(r.correctAns)}</small></div>`).join('')}
+        <h3 style="margin:15px 0 10px;color:#1e3c72;">Part B</h3>
+        ${partB.map(r=>`<div class="q-item">
+          <b>Q${r.qNo} (${r.score}/10):</b> ${escapeHtml(r.q).slice(0,100)}...<br>
+          <small>Your answer: ${escapeHtml(r.studentAns).slice(0,200)}</small></div>`).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function getGrade(pct){
+  if(pct>=90)return {grade:'A+',gradeClass:'grade-A-plus',remark:'Outstanding!'};
+  if(pct>=80)return {grade:'A',gradeClass:'grade-A',remark:'Excellent'};
+  if(pct>=70)return {grade:'B',gradeClass:'grade-B',remark:'Very Good'};
+  if(pct>=60)return {grade:'C',gradeClass:'grade-C',remark:'Good'};
+  if(pct>=50)return {grade:'D',gradeClass:'grade-D',remark:'Average'};
+  return {grade:'F',gradeClass:'grade-F',remark:'Needs Improvement'};
+}
+
+function printScorecard(){
+  const sc=document.getElementById('printableScorecard');
+  sc.style.display='block';window.print();
+  setTimeout(()=>sc.style.display='none',1000);
+}
+
+function retakeExam(){
+  if(!confirm('Start a new attempt with a freshly shuffled paper?'))return;
+  exam={part:'A',current:0,partA:[],partB:[],answers:{},marked:{},timeLeft:0,timerId:null,startTime:null,attemptNo:0};
+  document.getElementById('resultScreen').classList.add('hidden');
+  document.getElementById('instrScreen').classList.remove('hidden');
+  document.getElementById('agreeCheck').checked=false;
+  document.getElementById('startBtn').disabled=true;
+  const uid=sessionStorage.getItem('user');
+  const attemptNo=(state.attempts[uid]||0)+1;
+  document.getElementById('attemptInfo').innerHTML=`📝 <b>Attempt #${attemptNo}</b> — A new shuffled question paper will be generated.`;
+}
+
+function showModal(html){document.getElementById('modalContent').innerHTML=html;document.getElementById('modal').classList.remove('hidden');}
+function closeModal(){document.getElementById('modal').classList.add('hidden');}
+
+/* ============ ADMIN ============ */
+function showAdmin(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('adminScreen').classList.remove('hidden');
+  showAdminTab('submissions',document.querySelector('.admin-tabs button'));
+}
+
+function showAdminTab(tab,btn){
+  document.querySelectorAll('.admin-tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const p=document.getElementById('adminPanel');
+
+  if(tab==='submissions'){renderSubmissionsDashboard(p);}
+  else if(tab==='mcq'){
+    p.innerHTML=`<h3>MCQ Bank (${state.mcq.length} questions)</h3>
+      <select id="mcqSeg">${state.syllabus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      <textarea id="mcqQ" placeholder="Question text"></textarea>
+      <textarea id="mcqOpts" placeholder="Options (one per line, 4 options)"></textarea>
+      <input id="mcqAns" type="number" min="0" max="3" placeholder="Correct option index (0-3)">
+      <button class="btn-primary" onclick="addMCQ()">Add MCQ</button>
+      <div class="q-list">${state.mcq.map(q=>`<div class="q-item">
+        <button class="del" onclick="delQ('mcq','${q.id}')">Delete</button>
+        <b>[Seg ${q.seg}]</b> ${escapeHtml(q.q)}<br><small>Ans: ${q.opts[q.ans]}</small></div>`).join('')}</div>`;
+  }
+  else if(tab==='msq'){
+    p.innerHTML=`<h3>MSQ Bank (${state.msq.length} questions)</h3>
+      <select id="msqSeg">${state.syllabus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      <textarea id="msqQ" placeholder="Question text"></textarea>
+      <textarea id="msqOpts" placeholder="Options (one per line)"></textarea>
+      <input id="msqAns" placeholder="Correct indices comma-separated (e.g., 0,1,3)">
+      <button class="btn-primary" onclick="addMSQ()">Add MSQ</button>
+      <div class="q-list">${state.msq.map(q=>`<div class="q-item">
+        <button class="del" onclick="delQ('msq','${q.id}')">Delete</button>
+        <b>[Seg ${q.seg}]</b> ${escapeHtml(q.q)}<br><small>Ans: ${q.ans.map(i=>q.opts[i]).join(', ')}</small></div>`).join('')}</div>`;
+  }
+  else if(tab==='desc'){
+    p.innerHTML=`<h3>Descriptive Bank (${state.desc.length} questions)</h3>
+      <select id="descSeg">${state.syllabus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      <textarea id="descQ" placeholder="Question" style="min-height:150px;"></textarea>
+      <textarea id="descModel" placeholder="Model answer" style="min-height:150px;"></textarea>
+      <button class="btn-primary" onclick="addDesc()">Add Descriptive</button>
+      <div class="q-list">${state.desc.map(q=>`<div class="q-item">
+        <button class="del" onclick="delQ('desc','${q.id}')">Delete</button>
+        <b>[Seg ${q.seg}]</b> ${escapeHtml(q.q).slice(0,100)}...</div>`).join('')}</div>`;
+  }
+  else if(tab==='bulk'){
+    p.innerHTML=`<h3>📥 Bulk Import Questions</h3>
+      <p style="color:#666;margin-bottom:15px;">Paste multiple questions at once.</p>
+      <h4 style="margin:10px 0;">MCQ Format:</h4>
+      <pre style="background:#f5f5f5;padding:10px;font-size:12px;border-radius:5px;">Q: question text
+A: option1
+B: option2
+C: option3
+D: option4
+ANS: A
+SEG: 1</pre>
+      <textarea id="bulkMCQ" placeholder="Paste MCQs here..." style="min-height:200px;"></textarea>
+      <button class="btn-primary" onclick="bulkImportMCQ()">Import MCQs</button>
+      <hr style="margin:20px 0;">
+      <h4 style="margin:10px 0;">MSQ Format:</h4>
+      <pre style="background:#f5f5f5;padding:10px;font-size:12px;border-radius:5px;">Q: question text
+A: option1
+B: option2
+C: option3
+D: option4
+ANS: A,C
+SEG: 2</pre>
+      <textarea id="bulkMSQ" placeholder="Paste MSQs here..." style="min-height:200px;"></textarea>
+      <button class="btn-primary" onclick="bulkImportMSQ()">Import MSQs</button>
+      <hr style="margin:20px 0;">
+      <h4 style="margin:10px 0;">Import from JSON:</h4>
+      <textarea id="bulkJSON" placeholder='Paste JSON from Export button' style="min-height:100px;"></textarea>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-primary" onclick="importJSON()">Import JSON</button>
+        <button class="btn-success" onclick="exportJSON()">📤 Export All Data</button>
+      </div>`;
+  }
+  else if(tab==='upload'){
+    p.innerHTML=`
+      <h3>📎 Upload Question Papers & Syllabus</h3>
+      <p style="color:#666;margin-bottom:15px;">Upload PDF, Word (.docx), or Text files. The system will <b>automatically extract</b> questions.</p>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📁</div>
+        <h4>Drop files here or click to browse</h4>
+        <p>Supports: PDF, DOCX, TXT, JSON (multiple files allowed)</p>
+        <div class="format-chips">
+          <span class="chip">📄 PDF</span><span class="chip">📝 DOCX</span>
+          <span class="chip">📃 TXT</span><span class="chip">🔧 JSON</span>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.json">
+      </div>
+      <div style="display:flex;gap:10px;margin:15px 0;flex-wrap:wrap;">
+        <label style="padding:8px 15px;background:#f5f5f5;border-radius:6px;cursor:pointer;">
+          <input type="radio" name="docType" value="auto" checked> 🤖 Auto-detect
+        </label>
+        <label style="padding:8px 15px;background:#f5f5f5;border-radius:6px;cursor:pointer;">
+          <input type="radio" name="docType" value="mcq"> MCQ Paper
+        </label>
+        <label style="padding:8px 15px;background:#f5f5f5;border-radius:6px;cursor:pointer;">
+          <input type="radio" name="docType" value="msq"> MSQ Paper
+        </label>
+        <label style="padding:8px 15px;background:#f5f5f5;border-radius:6px;cursor:pointer;">
+          <input type="radio" name="docType" value="desc"> Descriptive Paper
+        </label>
+        <label style="padding:8px 15px;background:#f5f5f5;border-radius:6px;cursor:pointer;">
+          <input type="radio" name="docType" value="syllabus"> Syllabus Doc
+        </label>
+      </div>
+      <label style="display:block;margin:10px 0;">
+        <b>Default Segment:</b>
+        <select id="defaultSeg" style="padding:6px;border:1px solid #ccc;border-radius:4px;">
+          ${state.syllabus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+        </select>
+      </label>
+      <div id="processingStatus"></div>
+      <div id="importLog" class="log-box" style="display:none;"></div>
+      <div id="previewSection" style="display:none;"></div>
+    `;
+    const zone=document.getElementById('uploadZone');
+    const input=document.getElementById('fileInput');
+    ['dragenter','dragover'].forEach(e=>zone.addEventListener(e,ev=>{ev.preventDefault();zone.classList.add('dragover');}));
+    ['dragleave','drop'].forEach(e=>zone.addEventListener(e,ev=>{ev.preventDefault();zone.classList.remove('dragover');}));
+    zone.addEventListener('drop',ev=>handleFiles(ev.dataTransfer.files));
+    input.addEventListener('change',ev=>handleFiles(ev.target.files));
+  }
+  else if(tab==='syllabus'){
+    p.innerHTML=`<h3>Syllabus Segments</h3>
+      ${state.syllabus.map((s,i)=>`<div class="q-item">
+        <b>Segment ${s.id}:</b> <input value="${escapeHtml(s.name)}" onchange="updSyl(${i},'name',this.value)" style="width:70%;display:inline-block;">
+        <br><textarea onchange="updSyl(${i},'topics',this.value)">${escapeHtml(s.topics)}</textarea></div>`).join('')}
+      <button class="btn-primary" onclick="alert('Syllabus saved!')">Save</button>`;
+  }
+  else if(tab==='config'){
+    const c=state.config;
+    p.innerHTML=`<h3>Exam Configuration</h3>
+      <label>Duration (minutes): <input type="number" id="cfgDur" value="${c.duration}"></label>
+      <label>MCQ per segment (6 values): <input id="cfgMcq" value="${c.mcqPerSeg.join(',')}"></label>
+      <label>MSQ per segment (6 values): <input id="cfgMsq" value="${c.msqPerSeg.join(',')}"></label>
+      <label>Descriptive count: <input type="number" id="cfgDesc" value="${c.descCount}"></label>
+      <label>MCQ marks: <input type="number" id="cfgMcqM" value="${c.mcqMarks}"></label>
+      <label>MSQ marks: <input type="number" id="cfgMsqM" value="${c.msqMarks}"></label>
+      <label>Descriptive marks: <input type="number" id="cfgDescM" value="${c.descMarks}"></label>
+      <br><button class="btn-primary" onclick="saveConfig()">Save</button>
+      <hr style="margin:20px 0;">
+      <button class="btn-danger" onclick="if(confirm('Reset all data?')){localStorage.clear();location.reload();}">Reset All</button>`;
+  }
+}
+
+function renderSubmissionsDashboard(p){
+  const subs=state.submissions;
+  if(subs.length===0){
+    p.innerHTML=`<h3>📊 Student Submissions</h3>
+      <div style="text-align:center;padding:40px;color:#666;">
+        <div style="font-size:50px;">📭</div>
+        <p>No submissions yet.</p>
+      </div>`;
+    return;
+  }
+  const totalAttempts=subs.length;
+  const uniqueStudents=new Set(subs.map(s=>s.studentId)).size;
+  const avgScore=subs.reduce((a,s)=>a+s.scores.total,0)/totalAttempts;
+  const bestScore=Math.max(...subs.map(s=>s.scores.total));
+
+  let html=`<h3>📊 Student Submissions Dashboard</h3>
+    <div class="stats-grid">
+      <div class="stats-card"><div class="n">${totalAttempts}</div><div class="l">Total Attempts</div></div>
+      <div class="stats-card"><div class="n">${uniqueStudents}</div><div class="l">Unique Students</div></div>
+      <div class="stats-card"><div class="n">${avgScore.toFixed(1)}</div><div class="l">Avg Score /70</div></div>
+      <div class="stats-card"><div class="n">${bestScore}</div><div class="l">Best Score /70</div></div>
+    </div>
+    <div class="toolbar">
+      <button class="btn-success" onclick="exportCSV()">📤 Export CSV</button>
+      <button class="btn-danger" onclick="clearSubmissions()">🗑️ Clear All</button>
+      <input type="text" id="searchSub" placeholder="🔍 Search student ID..." oninput="filterSubs()" style="padding:8px;border:1px solid #ccc;border-radius:5px;">
+    </div>
+    <table class="sub-table" id="subTable">
+      <thead><tr><th>Student ID</th><th>Attempt</th><th>Date/Time</th><th>MCQ</th><th>MSQ</th><th>Desc</th><th>Total</th><th>Time</th><th>Action</th></tr></thead>
+      <tbody>`;
+
+  subs.slice().reverse().forEach(s=>{
+    const d=new Date(s.timestamp);const dateStr=d.toLocaleString();
+    const timeStr=`${Math.floor(s.timeTaken/60)}m ${s.timeTaken%60}s`;
+    const totalCls=s.scores.total<35?'low':'';
+    html+=`<tr onclick="toggleSubDetail('${s.id}')" data-sid="${s.studentId.toLowerCase()}">
+      <td><b>${s.studentId}</b></td><td>#${s.attemptNo}</td><td>${dateStr}</td>
+      <td>${s.scores.mcq}/20</td><td>${s.scores.msq}/20</td><td>${s.scores.desc}/30</td>
+      <td class="score ${totalCls}">${s.scores.total}/70</td><td>${timeStr}</td>
+      <td><button class="btn-primary" style="padding:4px 10px;font-size:12px;" onclick="event.stopPropagation();toggleSubDetail('${s.id}')">View</button></td>
+    </tr>
+    <tr id="detail-${s.id}" class="hidden"><td colspan="9">
+      <div class="sub-detail">
+        <h4 style="color:#1e3c72;margin-bottom:10px;">Part A - MCQ/MSQ Answers</h4>
+        ${s.partA.map(r=>`<div class="qa ${r.isCorrect?'correct':'wrong'}">
+          <span class="tag ${r.isCorrect?'green':'red'}">${r.isCorrect?'✓ CORRECT':'✗ WRONG'}</span>
+          <span class="tag gray">${r.type.toUpperCase()} | Seg ${r.seg}</span>
+          <b>Q${r.qNo}:</b> ${escapeHtml(r.q)}<br>
+          <small><b>Your answer:</b> ${escapeHtml(r.studentAns)}<br><b>Correct:</b> ${escapeHtml(r.correctAns)}</small>
+        </div>`).join('')}
+        <h4 style="color:#1e3c72;margin:15px 0 10px;">Part B - Descriptive Answers</h4>
+        ${s.partB.map(r=>`<div class="qa">
+          <span class="tag gray">Seg ${r.seg} | Score: ${r.score}/10</span>
+          <b>Q${r.qNo}:</b> ${escapeHtml(r.q).slice(0,200)}...<br>
+          <b>Student's Answer:</b>
+          <div style="background:#f5f5f5;padding:10px;margin:5px 0;border-radius:4px;white-space:pre-wrap;">${escapeHtml(r.studentAns)||'<i>No answer</i>'}</div>
+          <details><summary style="cursor:pointer;color:#1e3c72;">View Model Answer</summary>
+            <div style="background:#e8f5e9;padding:10px;margin:5px 0;border-radius:4px;white-space:pre-wrap;">${escapeHtml(r.modelAns)}</div>
+          </details>
+        </div>`).join('')}
+      </div>
+    </td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  p.innerHTML=html;
+}
+
+function toggleSubDetail(id){document.getElementById('detail-'+id).classList.toggle('hidden');}
+function filterSubs(){
+  const q=document.getElementById('searchSub').value.toLowerCase();
+  document.querySelectorAll('#subTable tbody tr[data-sid]').forEach(tr=>{
+    const match=tr.dataset.sid.includes(q);
+    tr.style.display=match?'':'none';
+  });
+}
+
+function exportCSV(){
+  const subs=state.submissions;
+  let csv='Student ID,Attempt,Timestamp,MCQ,MSQ,Descriptive,Total,Time(sec)\n';
+  subs.forEach(s=>{csv+=`${s.studentId},${s.attemptNo},"${new Date(s.timestamp).toLocaleString()}",${s.scores.mcq},${s.scores.msq},${s.scores.desc},${s.scores.total},${s.timeTaken}\n`;});
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='exam_submissions_'+Date.now()+'.csv';a.click();
+}
+
+function clearSubmissions(){
+  if(!confirm('Delete ALL submissions?'))return;
+  state.submissions=[];save('submissions',[]);
+  showAdminTab('submissions',document.querySelector('.admin-tabs button.active'));
+}
+
+function bulkImportMCQ(){
+  const text=document.getElementById('bulkMCQ').value.trim();
+  if(!text){alert('Paste MCQs first');return;}
+  const blocks=text.split(/\n\s*\n/);let count=0;
+  blocks.forEach(block=>{
+    const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);const obj={};
+    lines.forEach(l=>{const m=l.match(/^([A-Z]+):\s*(.+)$/);if(m)obj[m[1]]=m[2];});
+    if(obj.Q&&obj.A&&obj.ANS&&obj.SEG){
+      const opts=[obj.A,obj.B,obj.C,obj.D].filter(Boolean);
+      const ansLetter=obj.ANS.trim().toUpperCase();const ansIdx='ABCD'.indexOf(ansLetter);
+      if(ansIdx>=0&&opts.length>=2){
+        state.mcq.push({id:'m'+Date.now()+'_'+Math.random(),seg:+obj.SEG,q:obj.Q,opts,ans:ansIdx});count++;
+      }
+    }
+  });
+  save('mcq',state.mcq);alert(`✅ Imported ${count} MCQs!`);document.getElementById('bulkMCQ').value='';
+}
+
+function bulkImportMSQ(){
+  const text=document.getElementById('bulkMSQ').value.trim();
+  if(!text){alert('Paste MSQs first');return;}
+  const blocks=text.split(/\n\s*\n/);let count=0;
+  blocks.forEach(block=>{
+    const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);const obj={};
+    lines.forEach(l=>{const m=l.match(/^([A-Z]+):\s*(.+)$/);if(m)obj[m[1]]=m[2];});
+    if(obj.Q&&obj.A&&obj.ANS&&obj.SEG){
+      const opts=[obj.A,obj.B,obj.C,obj.D].filter(Boolean);
+      const ansLetters=obj.ANS.split(',').map(s=>s.trim().toUpperCase());
+      const ansIdx=ansLetters.map(l=>'ABCD'.indexOf(l)).filter(i=>i>=0);
+      if(ansIdx.length>0&&opts.length>=2){
+        state.msq.push({id:'s'+Date.now()+'_'+Math.random(),seg:+obj.SEG,q:obj.Q,opts,ans:ansIdx});count++;
+      }
+    }
+  });
+  save('msq',state.msq);alert(`✅ Imported ${count} MSQs!`);document.getElementById('bulkMSQ').value='';
+}
+
+function exportJSON(){
+  const data={mcq:state.mcq,msq:state.msq,desc:state.desc,syllabus:state.syllabus,config:state.config};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='exam_data_'+Date.now()+'.json';a.click();
+}
+
+function importJSON(){
+  const text=document.getElementById('bulkJSON').value.trim();
+  if(!text){alert('Paste JSON first');return;}
+  try{
+    const data=JSON.parse(text);
+    if(data.mcq)state.mcq=data.mcq;if(data.msq)state.msq=data.msq;
+    if(data.desc)state.desc=data.desc;if(data.syllabus)state.syllabus=data.syllabus;
+    if(data.config)state.config=data.config;
+    save('mcq',state.mcq);save('msq',state.msq);save('desc',state.desc);
+    save('syllabus',state.syllabus);save('config',state.config);
+    alert('✅ Data imported!');
+  } catch(e){alert('Invalid JSON: '+e.message);}
+}
+
+function addMCQ(){
+  const seg=+document.getElementById('mcqSeg').value;
+  const q=document.getElementById('mcqQ').value.trim();
+  const opts=document.getElementById('mcqOpts').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const ans=+document.getElementById('mcqAns').value;
+  if(!q||opts.length<2||isNaN(ans)){alert('Fill all fields');return;}
+  state.mcq.push({id:'m'+Date.now(),seg,q,opts,ans});
+  save('mcq',state.mcq);showAdminTab('mcq',document.querySelector('.admin-tabs button.active'));
+}
+function addMSQ(){
+  const seg=+document.getElementById('msqSeg').value;
+  const q=document.getElementById('msqQ').value.trim();
+  const opts=document.getElementById('msqOpts').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const ans=document.getElementById('msqAns').value.split(',').map(s=>+s.trim()).filter(x=>!isNaN(x));
+  if(!q||opts.length<2||ans.length===0){alert('Fill all fields');return;}
+  state.msq.push({id:'s'+Date.now(),seg,q,opts,ans});
+  save('msq',state.msq);showAdminTab('msq',document.querySelector('.admin-tabs button.active'));
+}
+function addDesc(){
+  const seg=+document.getElementById('descSeg').value;
+  const q=document.getElementById('descQ').value.trim();
+  const model=document.getElementById('descModel').value.trim();
+  if(!q){alert('Enter question');return;}
+  state.desc.push({id:'d'+Date.now(),seg,q,model});
+  save('desc',state.desc);showAdminTab('desc',document.querySelector('.admin-tabs button.active'));
+}
+function delQ(type,id){
+  if(!confirm('Delete?'))return;
+  state[type]=state[type].filter(q=>q.id!==id);
+  save(type,state[type]);showAdminTab(type,document.querySelector('.admin-tabs button.active'));
+}
+function updSyl(i,k,v){state.syllabus[i][k]=v;save('syllabus',state.syllabus);}
+function saveConfig(){
+  state.config={
+    duration:+document.getElementById('cfgDur').value,
+    mcqPerSeg:document.getElementById('cfgMcq').value.split(',').map(Number),
+    msqPerSeg:document.getElementById('cfgMsq').value.split(',').map(Number),
+    descCount:+document.getElementById('cfgDesc').value,
+    mcqMarks:+document.getElementById('cfgMcqM').value,
+    msqMarks:+document.getElementById('cfgMsqM').value,
+    descMarks:+document.getElementById('cfgDescM').value
+  };
+  save('config',state.config);alert('Saved!');
+}
+
+/* ============ FILE UPLOAD ============ */
+let pendingImport=[];
+
+async function handleFiles(files){
+  const log=document.getElementById('importLog');
+  const status=document.getElementById('processingStatus');
+  log.style.display='block';log.innerHTML='';
+  status.innerHTML='<div class="spinner"></div> Processing files...';
+  pendingImport=[];
+  const docType=document.querySelector('input[name="docType"]:checked').value;
+  const defaultSeg=+document.getElementById('defaultSeg').value;
+
+  for(const file of files){
+    log.innerHTML+=`<span class="info">📄 Processing: ${file.name}</span>\n`;
+    try{
+      let text='';const ext=file.name.split('.').pop().toLowerCase();
+      if(ext==='pdf')text=await extractPDF(file);
+      else if(ext==='docx')text=await extractDOCX(file);
+      else if(ext==='txt'||ext==='json')text=await file.text();
+      else{log.innerHTML+=`<span class="err">❌ Unsupported: ${ext}</span>\n`;continue;}
+      log.innerHTML+=`<span class="ok">✓ Extracted ${text.length} characters</span>\n`;
+
+      if(docType==='syllabus'||/syllabus|curriculum|outline/i.test(file.name)){
+        const segs=extractSyllabus(text);
+        log.innerHTML+=`<span class="ok">✓ Found ${segs.length} segments</span>\n`;
+        segs.forEach(s=>{if(!state.syllabus.find(x=>x.name===s.name)){state.syllabus.push({id:state.syllabus.length+1,name:s.name,topics:s.topics});}});
+        save('syllabus',state.syllabus);
+      } else if(ext==='json'){
+        try{
+          const data=JSON.parse(text);
+          if(data.mcq){state.mcq.push(...data.mcq);save('mcq',state.mcq);}
+          if(data.msq){state.msq.push(...data.msq);save('msq',state.msq);}
+          if(data.desc){state.desc.push(...data.desc);save('desc',state.desc);}
+          log.innerHTML+=`<span class="ok">✓ Imported JSON</span>\n`;
+        }catch(e){log.innerHTML+=`<span class="err">❌ Invalid JSON</span>\n`;}
+      } else {
+        const extracted=extractQuestions(text,docType,defaultSeg);
+        log.innerHTML+=`<span class="ok">✓ Extracted ${extracted.length} questions</span>\n`;
+        pendingImport=pendingImport.concat(extracted);
+      }
+    }catch(err){log.innerHTML+=`<span class="err">❌ Error: ${err.message}</span>\n`;}
+  }
+  status.innerHTML='';showPreview();
+}
+
+async function extractPDF(file){
+  const buf=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let text='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);const content=await page.getTextContent();
+    text+=content.items.map(it=>it.str).join(' ')+'\n\n';
+  }
+  return text;
+}
+
+async function extractDOCX(file){
+  const buf=await file.arrayBuffer();
+  const result=await mammoth.extractRawText({arrayBuffer:buf});
+  return result.value;
+}
+
+function extractSyllabus(text){
+  const segs=[];
+  const regex=/Segment\s*(\d+)\s*[:\-]\s*([^\n]+)([\s\S]{0,500}?)(?=Segment\s*\d|$)/gi;
+  let m;while((m=regex.exec(text))!==null){
+    segs.push({id:+m[1],name:`Segment ${m[1]}: ${m[2].trim()}`,topics:m[3].trim().slice(0,300)});
+  }
+  return segs;
+}
+
+function extractQuestions(text,forcedType,defaultSeg){
+  const questions=[];text=text.replace(/\r\n/g,'\n').replace(/\t/g,' ');
+  const qBlocks=text.split(/(?=(?:^|\n)\s*(?:Q\s*\d+|Question\s*\d+|\d+\s*[\.\)])/i));
+  qBlocks.forEach(block=>{
+    if(!block.trim())return;
+    const qNumMatch=block.match(/(?:Q\s*|Question\s*)?(\d+)\s*[\.\)]/i);
+    if(!qNumMatch)return;
+    let seg=defaultSeg;
+    const segMatch=block.match(/(?:SEG|Segment)\s*[:\-]?\s*(\d+)/i)||block.match(/segment[\s\-]*(\d+)/i);
+    if(segMatch)seg=+segMatch[1];
+    let type=forcedType;
+    if(type==='auto'){
+      if(/\bMSQ\b|\bMultiple\s*Select\b/i.test(block))type='msq';
+      else if(/\bDescriptive\b|\bPart\s*B\b/i.test(block))type='desc';
+      else type='mcq';
+    }
+    const qTextMatch=block.match(/(?:Q\s*\d+|Question\s*\d+|\d+\s*[\.\)])\s*[\.\)]?\s*([\s\S]+?)(?=(?:^|\n)\s*[a-dA-D]\s*[\.\)])/i);
+    const qText=qTextMatch?qTextMatch[1].trim().split(/\n/)[0]:'';
+    if(!qText||qText.length<10)return;
+    if(type==='desc'){
+      const modelMatch=block.match(/(?:Solution|Model\s*Answer|Answer)\s*[:\-]?\s*([\s\S]+?)(?=(?:^|\n)\s*(?:Q\s*\d+|Question\s*\d+|\d+\s*[\.\)]))/i);
+      const model=modelMatch?modelMatch[1].trim().slice(0,2000):'';
+      questions.push({tempId:'tmp_'+Date.now()+'_'+Math.random(),type:'desc',seg,q:qText,model,status:'new'});
+      return;
+    }
+    const opts=[];
+    const optRegex=/(?:^|\n)\s*([a-dA-D])\s*[\.\)]\s*([^\n]+(?:\n(?![a-dA-D]\s*[\.\)])(?!(?:Q\s*\d+|Question\s*\d+|\d+\s*[\.\)]))[^\n]+)*)/gi;
+    let optMatch;while((optMatch=optRegex.exec(block))!==null){opts.push(optMatch[2].trim());}
+    if(opts.length<2)return;
+    const ansMatch=block.match(/(?:Correct\s*)?Answer[s]?\s*[:\-]\s*([^\n]+)/i)||block.match(/ANS\s*[:\-]\s*([^\n]+)/i);
+    let ans=[];
+    if(ansMatch){
+      const ansText=ansMatch[1];
+      const letters=ansText.match(/[a-dA-D]/g)||[];
+      ans=[...new Set(letters.map(l=>l.toUpperCase()))].map(l=>'ABCD'.indexOf(l)).filter(i=>i>=0&&i<opts.length);
+    }
+    if(ans.length===0)return;
+    questions.push({tempId:'tmp_'+Date.now()+'_'+Math.random(),type:ans.length>1?'msq':'mcq',seg,q:qText,opts,ans:ans.length===1?ans[0]:ans,status:'new'});
+  });
+  return questions;
+}
+
+function showPreview(){
+  const section=document.getElementById('previewSection');
+  if(pendingImport.length===0){
+    section.style.display='block';
+    section.innerHTML=`<div style="text-align:center;padding:30px;color:#666;">
+      <div style="font-size:40px;">📭</div>
+      <p>No questions extracted. Try a different file or format.</p>
+      <p style="font-size:12px;">Tip: Use "Bulk Import" tab for structured text.</p>
+    </div>`;
+    return;
+  }
+  const mcqCount=pendingImport.filter(q=>q.type==='mcq').length;
+  const msqCount=pendingImport.filter(q=>q.type==='msq').length;
+  const descCount=pendingImport.filter(q=>q.type==='desc').length;
+  let html=`
+    <div class="import-summary">
+      <div><div class="n">${pendingImport.length}</div><div class="l">Total Extracted</div></div>
+      <div><div class="n">${mcqCount}</div><div class="l">MCQs</div></div>
+      <div><div class="n">${msqCount}</div><div class="l">MSQs</div></div>
+      <div><div class="n">${descCount}</div><div class="l">Descriptive</div></div>
+    </div>
+    <div style="display:flex;gap:10px;margin:15px 0;flex-wrap:wrap;">
+      <button class="btn-success" onclick="confirmImport()">✅ Import All (${pendingImport.length})</button>
+      <button class="btn-danger" onclick="clearPreview()">🗑️ Discard All</button>
+      <button class="btn-primary" onclick="exportPreviewJSON()">📤 Export as JSON</button>
+    </div>
+    <div class="preview-wrap">
+      ${pendingImport.map((q,i)=>{
+        const segName=state.syllabus.find(s=>s.id===q.seg)?.name||`Segment ${q.seg}`;
+        let body='';
+        if(q.type==='desc'){
+          body=`<div style="margin-top:5px;font-size:13px;white-space:pre-wrap;max-height:100px;overflow-y:auto;background:#fff8e1;padding:8px;border-radius:4px;">${escapeHtml(q.q)}</div>
+                ${q.model?`<details style="margin-top:5px;"><summary style="cursor:pointer;font-size:12px;color:#1e3c72;">View Model Answer</summary>
+                <div style="background:#e8f5e9;padding:8px;margin-top:5px;border-radius:4px;font-size:12px;white-space:pre-wrap;max-height:150px;overflow-y:auto;">${escapeHtml(q.model)}</div></details>`:''}`;
+        } else {
+          body=`<div style="margin-top:5px;font-size:13px;">${escapeHtml(q.q)}</div>
+                <div class="opts">${q.opts.map((o,j)=>{
+                  const isAns=Array.isArray(q.ans)?q.ans.includes(j):q.ans===j;
+                  return `<div style="${isAns?'color:#2e7d32;font-weight:600;':''}">${String.fromCharCode(65+j)}. ${escapeHtml(o)} ${isAns?'✓':''}</div>`;
+                }).join('')}</div>
+                <div class="ans">Answer: ${Array.isArray(q.ans)?q.ans.map(i=>String.fromCharCode(65+i)).join(', '):String.fromCharCode(65+q.ans)}</div>`;
+        }
+        return `<div class="preview-item">
+          <button class="remove" onclick="removePending(${i})">✕ Remove</button>
+          <span class="q-type ${q.type}">${q.type.toUpperCase()}</span>
+          <span class="seg-tag">Seg ${q.seg}</span>
+          ${body}
+          <div style="margin-top:5px;">
+            <label style="font-size:12px;">Change segment: 
+              <select onchange="pendingImport[${i}].seg=+this.value" style="padding:2px;font-size:11px;">
+                ${state.syllabus.map(s=>`<option value="${s.id}" ${s.id===q.seg?'selected':''}>${s.name}</option>`).join('')}
+              </select>
+            </label>
+            <label style="font-size:12px;margin-left:10px;">Change type: 
+              <select onchange="pendingImport[${i}].type=this.value" style="padding:2px;font-size:11px;">
+                <option value="mcq" ${q.type==='mcq'?'selected':''}>MCQ</option>
+                <option value="msq" ${q.type==='msq'?'selected':''}>MSQ</option>
+                <option value="desc" ${q.type==='desc'?'selected':''}>Descriptive</option>
+              </select>
+            </label>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  section.style.display='block';section.innerHTML=html;
+}
+
+function removePending(i){pendingImport.splice(i,1);showPreview();}
+function clearPreview(){if(!confirm('Discard all?'))return;pendingImport=[];showPreview();}
+
+function confirmImport(){
+  if(pendingImport.length===0){alert('Nothing to import');return;}
+  let mcq=0,msq=0,desc=0;
+  pendingImport.forEach(q=>{
+    const base={id:q.type[0]+Date.now()+'_'+Math.random().toString(36).slice(2,6),seg:q.seg,q:q.q};
+    if(q.type==='mcq'){state.mcq.push({...base,opts:q.opts,ans:q.ans});mcq++;}
+    else if(q.type==='msq'){state.msq.push({...base,opts:q.opts,ans:q.ans});msq++;}
+    else{state.desc.push({...base,model:q.model||''});desc++;}
+  });
+  save('mcq',state.mcq);save('msq',state.msq);save('desc',state.desc);
+  alert(`✅ Imported!\n\n• MCQs: ${mcq}\n• MSQs: ${msq}\n• Descriptive: ${desc}`);
+  pendingImport=[];showPreview();
+}
+
+function exportPreviewJSON(){
+  const data={
+    mcq:pendingImport.filter(q=>q.type==='mcq').map(q=>({seg:q.seg,q:q.q,opts:q.opts,ans:q.ans})),
+    msq:pendingImport.filter(q=>q.type==='msq').map(q=>({seg:q.seg,q:q.q,opts:q.opts,ans:q.ans})),
+    desc:pendingImport.filter(q=>q.type==='desc').map(q=>({seg:q.seg,q:q.q,model:q.model}))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='extracted_questions.json';a.click();
+}
+
+/* Anti-cheat */
+document.addEventListener('keydown',e=>{
+  if(['F12'].includes(e.key)||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(e.key))||(e.ctrlKey&&['U','S','P','A','C','V'].includes(e.key.toUpperCase()))){
+    if(document.getElementById('examScreen').classList.contains('hidden'))return;
+    e.preventDefault();alert('⚠️ Disabled during exam.');
+  }
+});
+</script>
+</body>
+</html>
