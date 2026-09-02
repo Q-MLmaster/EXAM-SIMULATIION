@@ -13,21 +13,33 @@
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif;}
-body{background:#eef2f7;color:#222;min-height:100vh;}
+body{background:linear-gradient(135deg,#1e3c72,#2a5298);color:#222;min-height:100vh;}
 .hidden{display:none !important;}
 
-.login-wrap{display:flex;justify-content:center;align-items:center;min-height:100vh;
-  background:linear-gradient(135deg,#1e3c72,#2a5298);}
-.login-box{background:#fff;padding:40px;border-radius:12px;width:400px;
+.login-wrap{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;}
+.login-box{background:#fff;padding:40px;border-radius:16px;width:420px;max-width:100%;
   box-shadow:0 20px 60px rgba(0,0,0,.3);}
-.login-box h1{color:#1e3c72;text-align:center;margin-bottom:8px;font-size:22px;}
-.login-box .sub{text-align:center;color:#666;margin-bottom:25px;font-size:13px;}
-.login-box input{width:100%;padding:12px;margin:8px 0;border:1px solid #ccc;border-radius:6px;font-size:14px;}
-.login-box button{width:100%;padding:12px;background:#1e3c72;color:#fff;border:none;
-  border-radius:6px;font-size:15px;cursor:pointer;margin-top:10px;}
-.login-box button:hover{background:#2a5298;}
-.demo-info{margin-top:15px;padding:10px;background:#f0f7ff;border-radius:6px;
-  font-size:12px;color:#1e3c72;text-align:center;}
+.login-box .logo{text-align:center;font-size:50px;margin-bottom:10px;}
+.login-box h1{color:#1e3c72;text-align:center;margin-bottom:8px;font-size:24px;}
+.login-box .sub{text-align:center;color:#666;margin-bottom:25px;font-size:13px;line-height:1.5;}
+.input-group{position:relative;margin:10px 0;}
+.input-group input{width:100%;padding:14px 40px 14px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;transition:.3s;}
+.input-group input:focus{border-color:#1e3c72;outline:none;}
+.input-group .toggle-pw{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;font-size:18px;color:#666;}
+.login-box button{width:100%;padding:14px;background:#1e3c72;color:#fff;border:none;
+  border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;margin-top:15px;transition:.3s;}
+.login-box button:hover{background:#2a5298;transform:translateY(-1px);}
+.demo-info{margin-top:20px;padding:15px;background:#f0f7ff;border-radius:8px;
+  font-size:13px;color:#1e3c72;text-align:center;border:1px solid #bbdefb;}
+.demo-info b{display:block;margin-bottom:5px;}
+.demo-info code{background:#fff;padding:2px 6px;border-radius:4px;font-weight:600;}
+.error-msg{background:#ffebee;color:#c62828;padding:10px;border-radius:6px;
+  margin:10px 0;font-size:13px;display:none;border-left:4px solid #c62828;}
+.quick-login{display:flex;gap:8px;margin-top:10px;}
+.quick-login button{flex:1;padding:8px;font-size:12px;background:#e3f2fd;color:#1e3c72;
+  border:1px solid #bbdefb;border-radius:6px;cursor:pointer;margin:0;}
+.quick-login button:hover{background:#bbdefb;}
 
 .exam-header{background:#1e3c72;color:#fff;padding:10px 20px;display:flex;
   justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.2);
@@ -136,11 +148,7 @@ body{background:#eef2f7;color:#222;min-height:100vh;}
 .scorecard-print h2{color:#1e3c72;text-align:center;border-bottom:2px solid #1e3c72;padding-bottom:10px;}
 .scorecard-print .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #ccc;}
 
-@media print{
-  body *{visibility:hidden;}
-  .scorecard-print,.scorecard-print *{visibility:visible;}
-  .scorecard-print{position:absolute;left:0;top:0;width:100%;}
-}
+@media print{body *{visibility:hidden;}.scorecard-print,.scorecard-print *{visibility:visible;}.scorecard-print{position:absolute;left:0;top:0;width:100%;}}
 
 .admin-wrap{max-width:1200px;margin:20px auto;padding:20px;}
 .admin-tabs{display:flex;gap:5px;margin-bottom:20px;flex-wrap:wrap;}
@@ -213,22 +221,39 @@ body{background:#eef2f7;color:#222;min-height:100vh;}
 </head>
 <body oncontextmenu="return false;">
 
+<!-- LOGIN SCREEN -->
 <div id="loginScreen" class="login-wrap">
   <div class="login-box">
-    <div style="text-align:center;font-size:40px;">🎓</div>
+    <div class="logo">🎓</div>
     <h1>MAHE Online Examination</h1>
     <div class="sub">Directorate of Online Education<br>First Semester PGCP/MSc Business Analytics</div>
-    <input type="text" id="collegeId" placeholder="College ID (e.g., STU001)">
-    <input type="password" id="password" placeholder="Password">
+    
+    <div id="errorMsg" class="error-msg"></div>
+    
+    <div class="input-group">
+      <input type="text" id="collegeId" placeholder="College ID (e.g., STU001)" autocomplete="off">
+    </div>
+    <div class="input-group">
+      <input type="password" id="password" placeholder="Password">
+      <button class="toggle-pw" onclick="togglePassword()" type="button">👁️</button>
+    </div>
+    
     <button onclick="doLogin()">Login to Exam</button>
+    
+    <div class="quick-login">
+      <button onclick="quickLogin('STU001','pass123')">👨‍🎓 Student Demo</button>
+      <button onclick="quickLogin('ADMIN','admin123')">👨‍🏫 Admin Demo</button>
+    </div>
+    
     <div class="demo-info">
-      <b>Demo Credentials:</b><br>
+      <b>Demo Credentials:</b>
       Student: <code>STU001</code> / <code>pass123</code><br>
       Admin: <code>ADMIN</code> / <code>admin123</code>
     </div>
   </div>
 </div>
 
+<!-- INSTRUCTIONS -->
 <div id="instrScreen" class="hidden">
   <div class="exam-header">
     <div class="logo">🎓 Business Statistics - End Term Examination</div>
@@ -257,6 +282,7 @@ body{background:#eef2f7;color:#222;min-height:100vh;}
   </div>
 </div>
 
+<!-- EXAM -->
 <div id="examScreen" class="hidden">
   <div class="exam-header">
     <div class="logo">🎓 Business Statistics <span id="attemptBadge" style="font-size:12px;opacity:.8;"></span></div>
@@ -281,6 +307,7 @@ body{background:#eef2f7;color:#222;min-height:100vh;}
   </div>
 </div>
 
+<!-- RESULT -->
 <div id="resultScreen" class="hidden">
   <div class="exam-header">
     <div class="logo">🎓 Examination Completed</div>
@@ -289,6 +316,7 @@ body{background:#eef2f7;color:#222;min-height:100vh;}
   <div class="result-wrap" id="resultContent"></div>
 </div>
 
+<!-- ADMIN -->
 <div id="adminScreen" class="hidden">
   <div class="exam-header">
     <div class="logo">🎓 Admin Panel</div>
@@ -387,7 +415,7 @@ const DEFAULT_MSQ=[
   {id:'s16',seg:5,q:"Type I & II errors correct:",opts:["Type I: true H0 rejected","Type II: false H0 accepted","Type I=false negative","Type II reduced by larger n"],ans:[0,1,3]},
   {id:'s17',seg:5,q:"Hypothesis testing steps:",opts:["Formulate hypotheses","Choose α","Compute test stat","Compare with critical value"],ans:[0,1,2,3]},
   {id:'s18',seg:5,q:"Statistical hypotheses examples:",opts:["Avg salary=₹60k","70% prefer Brand A","Best food in city","Defect rate<2%","Satisfaction excellent","Avg delivery=48h"],ans:[0,1,3,5]},
-  {id:'s19',seg:6,q:"Least squares correct:",opts:["Minimizes SSE","Residuals eᵢ=yᵢ-ŷᵢ","Line of best fit","Minimizes squared residuals"],ans:[0,1,2,3]},
+  {id:'s19',seg:6,q:"Least squares correct:",opts:["Minimizes SSE","Residuals e=yᵢ-ŷᵢ","Line of best fit","Minimizes squared residuals"],ans:[0,1,2,3]},
   {id:'s20',seg:6,q:"SLRM true statements:",opts:["One DV","One IV","Straight line","Quantifies relationship"],ans:[0,1,2,3]},
   {id:'s21',seg:6,q:"R² correct statements:",opts:["Value 0 to 1","Proportion of variation explained","Higher=better fit","R²=0.90 → 90% explained"],ans:[0,1,2,3]},
   {id:'s22',seg:6,q:"Multiple regression correct:",opts:["One DV, 2+ IVs","Each coeff holds others const","Uses least squares","Can use Excel"],ans:[0,1,2,3]}
@@ -396,7 +424,7 @@ const DEFAULT_MSQ=[
 const DEFAULT_DESC=[
   {id:'d1',seg:1,q:"Probability distribution for y:\ny: 1, 5, 9, 0\nf(y): 0.1, 0.2, 0.1, 0.6\n(a) Compute E(y). [5]\n(b) Compute Var(y) and σ. [5]",
    model:"E(y)=1(0.1)+5(0.2)+9(0.1)+0(0.6)=2.0\nE(y²)=13.2\nVar(y)=13.2-4=9.2\nσ=√9.2≈3.03"},
-  {id:'d2',seg:5,q:"Tyre company claims mean life 50,000 km. Sample 250: x̄=48,500, s=3,500. Normal.\n(a) Formulate H0, H1. Define Type I/II errors with consequences. [5]\n(b) At 1% significance, conduct test, show test statistic, critical region, interpret. [5]",
+  {id:'d2',seg:5,q:"Tyre company claims mean life 50,000 km. Sample 250: x=48,500, s=3,500. Normal.\n(a) Formulate H0, H1. Define Type I/II errors with consequences. [5]\n(b) At 1% significance, conduct test, show test statistic, critical region, interpret. [5]",
    model:"H₀: μ=50000, H₁: μ≠50000\nType I: Concluding mean≠50000 when it is → reputation damage\nType II: Concluding mean=50000 when it isn't → selling substandard tyres\nz=(48500-50000)/(3500/√250)=-2.26\nCritical ±2.576. |z|<2.576 → Fail to reject H₀"},
   {id:'d3',seg:6,q:"Regression: ŷ=120+15x (x=advertising ₹ lakh, y=sales ₹ lakh)\n(a) Explain SLR, distinguish DV vs IV with business example. [6]\n(b) Estimate sales when advertising=₹18 lakh. Interpret slope. [4]",
    model:"SLR models linear relationship between one DV and one IV.\nDV=sales, IV=advertising.\nŷ=120+15(18)=390 lakh. Slope 15: each ₹1 lakh ↑ in advertising → ₹15 lakh ↑ in expected sales."},
@@ -420,20 +448,60 @@ let state={
 };
 
 /* ============ AUTH ============ */
+function togglePassword(){
+  const pw=document.getElementById('password');
+  pw.type=pw.type==='password'?'text':'password';
+}
+
+function quickLogin(id,pw){
+  document.getElementById('collegeId').value=id;
+  document.getElementById('password').value=pw;
+  doLogin();
+}
+
+function showLoginError(msg){
+  const el=document.getElementById('errorMsg');
+  el.textContent=msg;
+  el.style.display='block';
+  setTimeout(()=>el.style.display='none',4000);
+}
+
 function doLogin(){
   const id=document.getElementById('collegeId').value.trim().toUpperCase();
   const pw=document.getElementById('password').value;
-  if(!id||!pw){alert('Enter College ID and Password');return;}
-  if(id==='ADMIN'&&pw==='admin123'){showAdmin();return;}
-  if(state.users[id]===pw){
+  
+  if(!id){showLoginError('️ Please enter your College ID');return;}
+  if(!pw){showLoginError('️ Please enter your Password');return;}
+  
+  // Debug: log what we're checking
+  console.log('Login attempt:',{id,pw,users:state.users});
+  
+  if(id==='ADMIN'&&pw==='admin123'){
     sessionStorage.setItem('user',id);
     document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('instrScreen').classList.remove('hidden');
-    document.getElementById('userInfo1').textContent='Welcome, '+id;
-    const attemptNo=(state.attempts[id]||0)+1;
-    document.getElementById('attemptInfo').innerHTML=`📝 <b>Attempt #${attemptNo}</b> — A new shuffled question paper will be generated for you.`;
-  } else {alert('Invalid credentials');}
+    showAdmin();
+    return;
+  }
+  
+  if(state.users[id]){
+    if(state.users[id]===pw){
+      sessionStorage.setItem('user',id);
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('instrScreen').classList.remove('hidden');
+      document.getElementById('userInfo1').textContent='Welcome, '+id;
+      const attemptNo=(state.attempts[id]||0)+1;
+      document.getElementById('attemptInfo').innerHTML=` <b>Attempt #${attemptNo}</b> — A new shuffled question paper will be generated for you.`;
+      return;
+    } else {
+      showLoginError(`❌ Wrong password for ${id}. Try "pass123" for students or "admin123" for admin.`);
+      return;
+    }
+  } else {
+    showLoginError(`❌ User "${id}" not found. Try STU001 or ADMIN.`);
+    return;
+  }
 }
+
 function logout(){sessionStorage.clear();location.reload();}
 function toggleStartBtn(){document.getElementById('startBtn').disabled=!document.getElementById('agreeCheck').checked;}
 
@@ -680,7 +748,7 @@ function showResult(mcq,msq,desc,total,timeTaken,partA,partB){
   const timeMin=Math.floor(timeTaken/60),timeSec=timeTaken%60;
 
   document.getElementById('resultContent').innerHTML=`
-    <h2>🎉 Examination Completed — Attempt #${exam.attemptNo}</h2>
+    <h2> Examination Completed — Attempt #${exam.attemptNo}</h2>
     <div class="score-card">
       <div class="lbl">YOUR TOTAL SCORE</div>
       <div class="big">${total} <span style="font-size:24px;">/ 70</span></div>
@@ -697,7 +765,7 @@ function showResult(mcq,msq,desc,total,timeTaken,partA,partB){
              <div style="font-size:20px;font-weight:bold;color:#1e3c72;">#${exam.attemptNo}</div></div>
       </div>
     </div>
-    <h3 style="color:#1e3c72;margin:20px 0 10px;">📊 Section-wise Performance</h3>
+    <h3 style="color:#1e3c72;margin:20px 0 10px;"> Section-wise Performance</h3>
     <div style="background:#fff;padding:15px;border-radius:8px;border:1px solid #eee;">
       <div style="margin-bottom:15px;">
         <div style="display:flex;justify-content:space-between;font-size:13px;">
@@ -726,7 +794,7 @@ function showResult(mcq,msq,desc,total,timeTaken,partA,partB){
         </div>
       </div>
     </div>
-    <h3 style="color:#1e3c72;margin:20px 0 10px;">🎯 Segment-wise Analysis</h3>
+    <h3 style="color:#1e3c72;margin:20px 0 10px;"> Segment-wise Analysis</h3>
     <div style="background:#fff;padding:15px;border-radius:8px;border:1px solid #eee;">
       ${Object.values(segScores).map(s=>{
         const pct=s.max?(s.scored/s.max)*100:0;
@@ -743,7 +811,7 @@ function showResult(mcq,msq,desc,total,timeTaken,partA,partB){
       }).join('')}
     </div>
     ${prevAttempts.length>0?`
-    <h3 style="color:#1e3c72;margin:20px 0 10px;">📈 Your Attempt History</h3>
+    <h3 style="color:#1e3c72;margin:20px 0 10px;"> Your Attempt History</h3>
     <div class="attempt-history">
       <table>
         <thead><tr><th>Attempt</th><th>Score</th><th>Percentage</th><th>Grade</th><th>Date</th></tr></thead>
@@ -763,7 +831,7 @@ function showResult(mcq,msq,desc,total,timeTaken,partA,partB){
       </table>
     </div>`:''}
     <div style="text-align:center;margin:25px 0;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-      <button class="btn-success" onclick="retakeExam()">🔁 Retake Exam (New Paper)</button>
+      <button class="btn-success" onclick="retakeExam()"> Retake Exam (New Paper)</button>
       <button class="btn-primary" onclick="printScorecard()">🖨️ Print Scorecard</button>
       <button class="btn-primary" onclick="logout()">Back to Login</button>
     </div>
@@ -982,7 +1050,7 @@ function renderSubmissionsDashboard(p){
   if(subs.length===0){
     p.innerHTML=`<h3>📊 Student Submissions</h3>
       <div style="text-align:center;padding:40px;color:#666;">
-        <div style="font-size:50px;">📭</div>
+        <div style="font-size:50px;"></div>
         <p>No submissions yet.</p>
       </div>`;
     return;
@@ -992,7 +1060,7 @@ function renderSubmissionsDashboard(p){
   const avgScore=subs.reduce((a,s)=>a+s.scores.total,0)/totalAttempts;
   const bestScore=Math.max(...subs.map(s=>s.scores.total));
 
-  let html=`<h3>📊 Student Submissions Dashboard</h3>
+  let html=`<h3> Student Submissions Dashboard</h3>
     <div class="stats-grid">
       <div class="stats-card"><div class="n">${totalAttempts}</div><div class="l">Total Attempts</div></div>
       <div class="stats-card"><div class="n">${uniqueStudents}</div><div class="l">Unique Students</div></div>
@@ -1000,7 +1068,7 @@ function renderSubmissionsDashboard(p){
       <div class="stats-card"><div class="n">${bestScore}</div><div class="l">Best Score /70</div></div>
     </div>
     <div class="toolbar">
-      <button class="btn-success" onclick="exportCSV()">📤 Export CSV</button>
+      <button class="btn-success" onclick="exportCSV()"> Export CSV</button>
       <button class="btn-danger" onclick="clearSubmissions()">🗑️ Clear All</button>
       <input type="text" id="searchSub" placeholder="🔍 Search student ID..." oninput="filterSubs()" style="padding:8px;border:1px solid #ccc;border-radius:5px;">
     </div>
